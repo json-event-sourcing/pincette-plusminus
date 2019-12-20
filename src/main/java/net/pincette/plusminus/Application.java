@@ -13,11 +13,11 @@ import static net.pincette.jes.util.Streams.start;
 import static net.pincette.util.Util.tryToDoWithRethrow;
 import static net.pincette.util.Util.tryToGetSilent;
 
+import com.mongodb.reactivestreams.client.MongoClient;
 import com.typesafe.config.Config;
 import java.util.concurrent.CompletionStage;
 import java.util.function.IntUnaryOperator;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.json.JsonObject;
 import net.pincette.jes.Aggregate;
 import net.pincette.jes.util.Fanout;
@@ -31,13 +31,82 @@ import org.apache.kafka.streams.Topology;
  * @author Werner Donn\u00e9
  */
 public class Application {
+  private static final String AGGREGATE_TYPE = "counter";
+  private static final String APP = "plusminus";
+  private static final String AUDIT = "audit";
   private static final String AUTH = "authorizationHeader";
+  private static final String DEV = "dev";
+  private static final String ELASTIC_APM = "elastic.apm";
+  private static final String ELASTIC_LOG = "elastic.log";
   private static final String ENVIRONMENT = "environment";
+  private static final String FANOUT = "fanout";
+  private static final String INFO = "INFO";
   private static final String KAFKA = "kafka";
   private static final String LOG_LEVEL = "logLevel";
+  private static final String MINUS = "minus";
+  private static final String MONGODB_DATABASE = "mongodb.database";
+  private static final String MONGODB_URI = "mongodb.uri";
+  private static final String PLUS = "plus";
+  private static final String REALM_ID = "realmId";
+  private static final String REALM_KEY = "realmKey";
   private static final String URI = "uri";
   private static final String VALUE = "value";
   private static final String VERSION = "1.0";
+
+  static StreamsBuilder createApp(
+      final StreamsBuilder builder, final Config config, final MongoClient mongoClient) {
+    final String environment = getEnvironment(config);
+    final Level logLevel = getLogLevel(config);
+    final Aggregate aggregate =
+        new Aggregate()
+            .withApp(APP)
+            .withType(AGGREGATE_TYPE)
+            .withEnvironment(environment)
+            .withBuilder(builder)
+            .withMongoDatabase(mongoClient.getDatabase(config.getString(MONGODB_DATABASE)))
+            .withBreakingTheGlass()
+            .withMonitoring(true)
+            .withAudit(AUDIT + "-" + DEV)
+            .withReducer(PLUS, (command, currentState) -> reduce(currentState, v -> v + 1))
+            .withReducer(MINUS, (command, currentState) -> reduce(currentState, v -> v - 1));
+
+    tryToGetSilent(() -> config.getConfig(FANOUT))
+        .ifPresent(
+            fanout ->
+                Fanout.connect(
+                    aggregate.replies(), fanout.getString(REALM_ID), fanout.getString(REALM_KEY)));
+
+    tryToGetSilent(() -> config.getConfig(ELASTIC_APM))
+        .ifPresent(apm -> monitor(aggregate, config.getString(URI), config.getString(AUTH)));
+
+    tryToGetSilent(() -> config.getConfig(ELASTIC_LOG))
+        .ifPresent(
+            log -> {
+              log(aggregate, logLevel, VERSION, log.getString(URI), log.getString(AUTH));
+
+              log(
+                  getLogger(APP),
+                  logLevel,
+                  VERSION,
+                  environment,
+                  log.getString(URI),
+                  log.getString(AUTH));
+            });
+
+    return aggregate.build();
+  }
+
+  static String getEnvironment(final Config config) {
+    return tryToGetSilent(() -> config.getString(ENVIRONMENT)).orElse(DEV);
+  }
+
+  private static Level getLogLevel(final Config config) {
+    return parse(tryToGetSilent(() -> config.getString(LOG_LEVEL)).orElse(INFO));
+  }
+
+  static MongoClient getMongoClient(final Config config) {
+    return create(config.getString(MONGODB_URI));
+  }
 
   private static CompletionStage<JsonObject> reduce(
       final JsonObject currentState, final IntUnaryOperator op) {
@@ -48,59 +117,14 @@ public class Application {
   }
 
   public static void main(final String[] args) {
-    final StreamsBuilder builder = new StreamsBuilder();
     final Config config = loadDefault();
-    final String environment = tryToGetSilent(() -> config.getString(ENVIRONMENT)).orElse("dev");
-    final Level logLevel = parse(tryToGetSilent(() -> config.getString(LOG_LEVEL)).orElse("INFO"));
-    final Logger logger = getLogger("plusminus");
 
     tryToDoWithRethrow(
-        () -> create(config.getString("mongodb.uri")),
+        () -> getMongoClient(config),
         client -> {
-          final Aggregate aggregate =
-              new Aggregate()
-                  .withApp("plusminus")
-                  .withType("counter")
-                  .withEnvironment(environment)
-                  .withBuilder(builder)
-                  .withMongoDatabase(client.getDatabase(config.getString("mongodb.database")))
-                  .withBreakingTheGlass()
-                  .withMonitoring(true)
-                  .withAudit("audit-dev")
-                  .withReducer("plus", (command, currentState) -> reduce(currentState, v -> v + 1))
-                  .withReducer(
-                      "minus", (command, currentState) -> reduce(currentState, v -> v - 1));
+          final Topology topology = createApp(new StreamsBuilder(), config, client).build();
 
-          aggregate.build();
-
-          tryToGetSilent(() -> config.getConfig("fanout"))
-              .ifPresent(
-                  fanout ->
-                      Fanout.connect(
-                          aggregate.replies(),
-                          fanout.getString("realmId"),
-                          fanout.getString("realmKey")));
-
-          tryToGetSilent(() -> config.getConfig("elastic.apm"))
-              .ifPresent(apm -> monitor(aggregate, config.getString(URI), config.getString(AUTH)));
-
-          tryToGetSilent(() -> config.getConfig("elastic.log"))
-              .ifPresent(
-                  log -> {
-                    log(aggregate, logLevel, VERSION, log.getString(URI), log.getString(AUTH));
-
-                    log(
-                        logger,
-                        logLevel,
-                        VERSION,
-                        environment,
-                        log.getString(URI),
-                        log.getString(AUTH));
-                  });
-
-          final Topology topology = builder.build();
-
-          logger.log(Level.INFO, "Topology:\n\n {0}", topology.describe());
+          getLogger(APP).log(Level.INFO, "Topology:\n\n {0}", topology.describe());
 
           if (!start(topology, Streams.fromConfig(config, KAFKA))) {
             exit(1);

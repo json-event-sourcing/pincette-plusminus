@@ -22,5 +22,4 @@ The configuration of the application is in ```conf/application.conf```.
 
 Build the application with ```mvn clean package``` and start it with ```java -jar target/pincette-plusminus-<version>-jar-with-dependencies.jar```.
 
-To run the tests you have to download and build the repository [pincette-jes-test](https://github.com/json-event-sourcing/pincette-jes-test). Then run it with ```java -jar pincette-jes-test-<version>-jar-with-dependencies.jar -d test```.
-
+The tests can be run with ```mvn test```. They are also run when you do the build.
