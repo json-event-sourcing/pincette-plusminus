@@ -6,11 +6,11 @@ import static net.pincette.jes.util.Streams.fromConfig;
 import static net.pincette.plusminus.Application.createApp;
 import static net.pincette.plusminus.Application.getMongoClient;
 import static net.pincette.util.Util.tryToDoWithRethrow;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.typesafe.config.Config;
 import java.io.File;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ReducerTest {
   private static final String ENVIRONMENT = "environment";
