@@ -17,8 +17,8 @@ import static net.pincette.jes.util.Event.changed;
 import static net.pincette.jes.util.JsonFields.COMMAND;
 import static net.pincette.jes.util.JsonFields.ID;
 import static net.pincette.jes.util.Mongo.addNotDeleted;
-import static net.pincette.jes.util.Mongo.aggregationPublisher;
 import static net.pincette.jes.util.Streams.start;
+import static net.pincette.mongo.JsonClient.aggregationPublisher;
 import static net.pincette.util.Collections.list;
 import static net.pincette.util.Util.tryToDoWithRethrow;
 import static net.pincette.util.Util.tryToGetSilent;
@@ -56,7 +56,7 @@ public class Application {
   private static final String MONGODB_URI = "mongodb.uri";
   private static final String PLUS = "plus";
   private static final String VALUE = "value";
-  private static final String VERSION = "1.0.5";
+  private static final String VERSION = "1.0.7";
 
   static StreamsBuilder createApp(
       final StreamsBuilder builder, final Config config, final MongoClient mongoClient) {
