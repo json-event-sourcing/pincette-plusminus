@@ -12,7 +12,6 @@ plusminus-counter-aggregate-dev
 plusminus-counter-command-dev
 plusminus-counter-event-dev
 plusminus-counter-event-full-dev
-plusminus-counter-monitor-dev
 plusminus-counter-reply-dev
 ```
 
