@@ -12,12 +12,12 @@ import com.typesafe.config.Config;
 import java.io.File;
 import org.junit.jupiter.api.Test;
 
-public class ReducerTest {
+class ReducerTest {
   private static final String ENVIRONMENT = "environment";
   private static final String KAFKA = "kafka";
 
   @Test
-  public void test() {
+  void test() {
     final Config config = loadDefault();
 
     tryToDoWithRethrow(
