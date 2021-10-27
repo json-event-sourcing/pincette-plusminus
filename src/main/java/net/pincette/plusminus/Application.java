@@ -8,6 +8,7 @@ import static com.mongodb.reactivestreams.client.MongoClients.create;
 import static java.lang.System.exit;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.logging.Level.parse;
+import static java.util.logging.Logger.getGlobal;
 import static java.util.logging.Logger.getLogger;
 import static javax.json.Json.createObjectBuilder;
 import static javax.json.Json.createValue;
@@ -68,6 +69,7 @@ public class Application {
             .withType(AGGREGATE_TYPE)
             .withEnvironment(environment)
             .withBuilder(builder)
+            .withLogger(getGlobal())
             .withMongoDatabase(mongoClient.getDatabase(config.getString(MONGODB_DATABASE)))
             .withReducer(PLUS, (command, currentState) -> reduce(currentState, v -> v + 1))
             .withReducer(MINUS, (command, currentState) -> reduce(currentState, v -> v - 1));
